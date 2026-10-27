@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>悩み処方箋 — Nayami Rx</title>
+
+  <!-- Strudel Web (CDN) with Fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/@strudel/web@1.3.0/dist/index.js"></script>
+  <script>
+    if (typeof window.initStrudel !== 'function' && (!window.strudel || typeof window.strudel.initStrudel !== 'function')) {
+      document.write('<script src="https://unpkg.com/@strudel/web"><\/script>');
+    }
+  </script>
+
+  <style>
+    /* ── Google Fonts ── */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { font-size: 15px; }
+    body {
+      font-family: 'Noto Sans JP', 'JetBrains Mono', monospace;
+      background: #0a0a0f;
+      color: #c8ccd4;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated Background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(0, 255, 136, 0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(0, 168, 255, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.04) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Container ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 760px;
+      padding: 2.5rem 1.5rem;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00ff88, #00a8ff, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.08em;
+    }
+    header p {
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+      color: #596273;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(18, 18, 28, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    /* ── Textarea ── */
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: #596273;
+      margin-bottom: 0.6rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    textarea {
+      width: 100%;
+      height: 130px;
+      background: #0d0d14;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: #e0e4ec;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.95rem;
+      padding: 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    textarea::placeholder { color: #3a3f4b; }
+    textarea:focus { border-color: rgba(0, 255, 136, 0.4); }
+
+    /* ── Button ── */
+    .btn-generate {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      margin-top: 1.2rem;
+      padding: 0.85rem;
+      background: linear-gradient(135deg, #00ff88, #00a8ff);
+      border: none;
+      border-radius: 10px;
+      color: #0a0a0f;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: opacity 0.25s, transform 0.15s;
+    }
+    .btn-generate:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-generate:active { transform: translateY(0); }
+    .btn-generate:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-generate .icon { font-size: 1.15rem; }
+
+    /* ── Code Display ── */
+    .code-section { display: none; }
+    .code-section.visible { display: block; }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+    .code-header h2 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: #00ff88;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 20px;
+      background: rgba(0, 255, 136, 0.1);
+      color: #00ff88;
+      border: 1px solid rgba(0, 255, 136, 0.25);
+    }
+    .status-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #00ff88;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    pre.code-block {
+      background: #0d0d14;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 1.2rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: #abb2bf;
+      min-height: 120px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Syntax Highlighting (manual) ── */
+    .hl-fn   { color: #61afef; }
+    .hl-str  { color: #98c379; }
+    .hl-num  { color: #d19a66; }
+    .hl-op   { color: #c678dd; }
+    .hl-kw   { color: #c678dd; }
+    .hl-dot  { color: #56b6c2; }
+    .hl-cmt  { color: #5c6370; font-style: italic; }
+
+    /* ── Button Row ── */
+    .btn-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+    }
+
+    /* ── Stop / Replay Buttons ── */
+    .btn-stop {
+      display: none;
+      flex: 1;
+      padding: 0.7rem;
+      background: rgba(0, 255, 136, 0.12);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 10px;
+      color: #00ff88;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .btn-stop.visible { display: block; }
+    .btn-stop:hover { background: rgba(0, 255, 136, 0.22); }
+
+    .btn-stop--red {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #ef4444;
+    }
+    .btn-stop--red:hover { background: rgba(239, 68, 68, 0.25); }
+
+    /* ── Volume Control ── */
+    .volume-control {
+      margin-top: 1rem;
+      margin-bottom: 0.2rem;
+      padding: 0.75rem 1rem;
+      background: #0d0d14;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+    }
+    .volume-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #7d8590;
+      letter-spacing: 0.08em;
+    }
+    .volume-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.2s;
+    }
+    .volume-title:hover {
+      color: #00ff88;
+    }
+    .vol-icon {
+      font-size: 0.95rem;
+    }
+    .volume-value {
+      color: #00ff88;
+      font-weight: 700;
+      min-width: 40px;
+      text-align: right;
+    }
+    .volume-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #00ff88 0%, #00ff88 80%, #1c1c28 80%, #1c1c28 100%);
+      outline: none;
+      cursor: pointer;
+      margin: 4px 0;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .volume-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.9);
+    }
+    .volume-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border: none;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .volume-slider::-moz-range-thumb:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.9);
+    }
+
+    /* ── Loading Spinner ── */
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(10, 10, 15, 0.3);
+      border-top-color: #0a0a0f;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    .spinner.visible { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 2rem 0;
+      font-size: 0.7rem;
+      color: #3a3f4b;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .container { padding: 1.5rem 1rem; }
+      header h1 { font-size: 1.4rem; }
+      pre.code-block { font-size: 0.75rem; }
+    }
+
+    /* ── Visualizer ── */
+    #visualizer {
+      width: 100%;
+      height: 60px;
+      margin-top: 0.8rem;
+      border-radius: 10px;
+      background: #0d0d14;
+      display: none;
+    }
+    #visualizer.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>悩み処方箋</h1>
+      <p>NAYAMI Rx — AI × Generative Music Therapy</p>
+    </header>
+
+    <!-- Input Card -->
+    <div class="card">
+      <label for="nayami-input">💭 今の悩みを入力してください</label>
+      <textarea
+        id="nayami-input"
+        placeholder="例: 仕事のプレッシャーで毎晩眠れない..."
+      ></textarea>
+      <button class="btn-generate" id="btn-generate" onclick="handleGenerate()">
+        <span class="icon">⚡</span>
+        <span id="btn-text">処方する</span>
+        <span class="spinner" id="spinner"></span>
+      </button>
+    </div>
+
+    <!-- Code Output Card -->
+    <div class="card code-section" id="code-section">
+      <div class="code-header">
+        <h2>▶ Generated Code</h2>
+        <span class="status-badge" id="status-badge">
+          <span class="dot"></span>
+          <span id="status-text">playing</span>
+        </span>
+      </div>
+      <pre class="code-block" id="code-display"></pre>
+      <canvas id="visualizer"></canvas>
+
+      <!-- Volume Slider Control -->
+      <div class="volume-control">
+        <div class="volume-header">
+          <span class="volume-title" onclick="toggleMute()" title="クリックでミュート/解除">
+            <span class="vol-icon" id="vol-icon">🔊</span> MASTER VOLUME
+          </span>
+          <span class="volume-value" id="volume-val">80%</span>
+        </div>
+        <input
+          type="range"
+          id="volume-slider"
+          class="volume-slider"
+          min="0"
+          max="100"
+          value="80"
+          oninput="handleVolumeChange(this.value)"
+        />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-stop" id="btn-replay" onclick="handleReplay()">▶ もう一度再生</button>
+        <button class="btn-stop btn-stop--red" id="btn-stop" onclick="handleStop()">■ 停止する</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      Powered by Gemini API &amp; Strudel — built with 🖤
+    </footer>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────────
+    //  状態管理
+    // ────────────────────────────────────────────────
+    let strudelReady = false;
+    let replInstance = null;      // Strudel REPL インスタンス
+    let lastGeneratedCode = '';   // 停止後に再再生するため保持
+    let isPlaying = false;
+
+    // ────────────────────────────────────────────────
+    //  音量管理 & Web Audio Master Gain フック
+    // ────────────────────────────────────────────────
+    let currentVolume = 0.8;      // 0.0 ~ 1.0 (デフォルト 80%)
+    let isMuted = false;
+    let volumeBeforeMute = 0.8;
+    let masterGainNode = null;
+    const masterGains = new WeakMap();
+
+    // AudioNode.prototype.connect をインターセプトし、
+    // destination に向かう全音声を masterGainNode を経由させる
+    const nativeConnect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function(destination, outputIndex, inputIndex) {
+      if (destination && this.context && destination === this.context.destination) {
+        let mg = masterGains.get(this.context);
+        if (!mg) {
+          mg = this.context.createGain();
+          const targetVol = isMuted ? 0 : currentVolume;
+          mg.gain.setValueAtTime(targetVol, this.context.currentTime);
+          nativeConnect.call(mg, this.context.destination);
+          masterGains.set(this.context, mg);
+          masterGainNode = mg;
+        }
+        if (this !== mg) {
+          return nativeConnect.call(this, mg, outputIndex, inputIndex);
+        }
+      }
+      return nativeConnect.call(this, destination, outputIndex, inputIndex);
+    };
+
+    function updateVolumeUI(val) {
+      const slider = document.getElementById('volume-slider');
+      const valLabel = document.getElementById('volume-val');
+      const icon = document.getElementById('vol-icon');
+
+      if (slider) {
+        slider.value = val;
+        slider.style.background = `linear-gradient(to right, #00ff88 0%, #00ff88 ${val}%, #1c1c28 ${val}%, #1c1c28 100%)`;
+      }
+      if (valLabel) {
+        valLabel.textContent = `${val}%`;
+      }
+      if (icon) {
+        if (val === 0 || isMuted) {
+          icon.textContent = '🔇';
+        } else if (val < 50) {
+          icon.textContent = '🔉';
+        } else {
+          icon.textContent = '🔊';
+        }
+      }
+    }
+
+    function applyVolumeToGainNode(vol) {
+      const getCtx = getStrudelFn('getAudioContext') || window.getAudioContext;
+      const ctx = typeof getCtx === 'function' ? getCtx() : null;
+      if (ctx) {
+        let mg = masterGains.get(ctx) || masterGainNode;
+        if (!mg) {
+          mg = ctx.createGain();
+          nativeConnect.call(mg, ctx.destination);
+          masterGains.set(ctx, mg);
+          masterGainNode = mg;
+        }
+        mg.gain.setValueAtTime(vol, ctx.currentTime);
+      }
+    }
+
+    function handleVolumeChange(valStr) {
+      const val = parseInt(valStr, 10);
+      currentVolume = val / 100;
+      isMuted = (val === 0);
+      if (val > 0) {
+        volumeBeforeMute = currentVolume;
+      }
+      updateVolumeUI(val);
+      applyVolumeToGainNode(isMuted ? 0 : currentVolume);
+    }
+
+    function toggleMute() {
+      if (isMuted) {
+        isMuted = false;
+        currentVolume = volumeBeforeMute || 0.8;
+        const val = Math.round(currentVolume * 100);
+        updateVolumeUI(val);
+        applyVolumeToGainNode(currentVolume);
+      } else {
+        if (currentVolume > 0) {
+          volumeBeforeMute = currentVolume;
+        }
+        isMuted = true;
+        updateVolumeUI(0);
+        applyVolumeToGainNode(0);
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    //  Strudel API ヘルパー
+    // ────────────────────────────────────────────────
+    function getStrudelFn(name) {
+      if (window.strudel && typeof window.strudel[name] === 'function') return window.strudel[name];
+      if (typeof window[name] === 'function') return window[name];
+      return null;
+    }
+
+    // ────────────────────────────────────────────────
+    //  Strudel 初期化（ユーザークリック内で呼ぶ）
+    // ────────────────────────────────────────────────
+    async function ensureStrudel() {
+      if (strudelReady && replInstance) return;
+
+      const initFn = getStrudelFn('initStrudel');
+      if (!initFn) {
+        throw new Error('@strudel/web の読み込みに失敗しました。CDN接続を確認の上、ページを再読み込みしてください。');
+      }
+
+      replInstance = await initFn();
+      strudelReady = true;
+      console.log('[Strudel] initialized successfully, repl:', replInstance);
+    }
+
+    // ────────────────────────────────────────────────
+    //  AudioContext を resume（ブラウザ Autoplay 対策）
+    // ────────────────────────────────────────────────
+    async function resumeAudio() {
+      const getCtx = getStrudelFn('getAudioContext') || window.getAudioContext;
+      if (typeof getCtx === 'function') {
+        const ctx = getCtx();
+        if (ctx && ctx.state === 'suspended') {
+          await ctx.resume();
+          console.log('[Audio] context resumed');
+        }
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    //  Strudel コードを再生する
+    // ────────────────────────────────────────────────
+    async function playCode(code) {
+      await ensureStrudel();
+      await resumeAudio();
+      applyVolumeToGainNode(isMuted ? 0 : currentVolume);
+
+      // REPL が停止状態なら start()
+      if (replInstance && typeof replInstance.start === 'function') {
+        try { replInstance.start(); } catch (e) {}
+      }
+
+      const evalFn = getStrudelFn('evaluate');
+      if (!evalFn) {
+        throw new Error('Strudel evaluate() が利用できません');
+      }
+
+      let codeToRun = code.trim();
+      // .play() が末尾にない場合は補完
+      if (!codeToRun.includes('.play()') && !codeToRun.endsWith('.play')) {
+        codeToRun = codeToRun + '.play()';
+      }
+
+      await evalFn(codeToRun);
+      isPlaying = true;
+      console.log('[Strudel] evaluate done');
+    }
+
+    // ────────────────────────────────────────────────
+    //  シンプルなシンタックスハイライト
+    // ────────────────────────────────────────────────
+    function highlight(code) {
+      let html = code
+        // コメント
+        .replace(/(\/\/.*)/g, '<span class="hl-cmt">$1</span>')
+        // 文字列 (ダブルクォート)
+        .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="hl-str">"$1"</span>')
+        // 文字列 (シングルクォート)
+        .replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '<span class="hl-str">\'$1\'</span>')
+        // 数値
+        .replace(/\b(\d+\.?\d*)\b/g, '<span class="hl-num">$1</span>')
+        // ドットメソッド
+        .replace(/\.(\w+)\s*\(/g, '.<span class="hl-dot">$1</span>(')
+        // 関数呼び出し (先頭)
+        .replace(/\b(note|s|sound|stack|seq|cat|n|struct|every|sometimes|rarely|slow|fast|rev|jux|chunk|chop|striate|off|add|sub|mul|superimpose)\s*\(/g,
+          '<span class="hl-fn">$1</span>(')
+        // エフェクト / パラメータ関数
+        .replace(/\b(lpf|hpf|resonance|delay|delaytime|delayfeedback|room|size|gain|crush|vowel|pan|speed|orbit|cut|shape|distort|triode|squiz|waveloss|coarse|djf|sustain|attack|decay|release)\s*\(/g,
+          '<span class="hl-fn">$1</span>(');
+      return html;
+    }
+
+    // ────────────────────────────────────────────────
+    //  タイプライター風表示
+    // ────────────────────────────────────────────────
+    async function typewriterDisplay(code, el) {
+      el.innerHTML = '';
+      const chars = [...code];
+      let buffer = '';
+      for (let i = 0; i < chars.length; i++) {
+        buffer += chars[i];
+        el.innerHTML = highlight(buffer) + '<span class="cursor">▌</span>';
+        el.scrollTop = el.scrollHeight;
+        const delay = chars[i] === '\n' ? 40 : 12;
+        await new Promise(r => setTimeout(r, delay));
+      }
+      el.innerHTML = highlight(buffer);
+    }
+
+    // ────────────────────────────────────────────────
+    //  ビジュアライザー (簡易波形表示)
+    // ────────────────────────────────────────────────
+    let animFrameId = null;
+
+    function startVisualizer() {
+      const canvas = document.getElementById('visualizer');
+      canvas.classList.add('visible');
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = canvas.offsetHeight * 2;
+      ctx.scale(2, 2);
+      const w = canvas.offsetWidth;
+      const h = canvas.offsetHeight;
+
+      function draw() {
+        ctx.fillStyle = '#0d0d14';
+        ctx.fillRect(0, 0, w, h);
+        const time = performance.now() / 1000;
+        const bars = 48;
+        const barW = w / bars - 2;
+        for (let i = 0; i < bars; i++) {
+          const v = Math.abs(Math.sin(time * 2 + i * 0.4) * Math.cos(time * 0.7 + i * 0.2));
+          const barH = v * h * 0.85;
+          const hue = 140 + i * 2.5;
+          ctx.fillStyle = `hsla(${hue}, 80%, 55%, 0.7)`;
+          ctx.fillRect(i * (barW + 2), h - barH, barW, barH);
+        }
+        animFrameId = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function stopVisualizer() {
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      document.getElementById('visualizer').classList.remove('visible');
+    }
+
+    // ────────────────────────────────────────────────
+    //  UI 状態を「再生中」に切り替え
+    // ────────────────────────────────────────────────
+    function showPlayingUI() {
+      startVisualizer();
+      document.getElementById('btn-stop').classList.add('visible');
+      document.getElementById('btn-replay').classList.remove('visible');
+      document.getElementById('status-text').textContent = 'playing';
+    }
+
+    // ────────────────────────────────────────────────
+    //  UI 状態を「停止」に切り替え
+    // ────────────────────────────────────────────────
+    function showStoppedUI() {
+      stopVisualizer();
+      document.getElementById('btn-stop').classList.remove('visible');
+      document.getElementById('status-text').textContent = 'stopped';
+      // 前回のコードがあれば再生ボタンを表示
+      if (lastGeneratedCode) {
+        document.getElementById('btn-replay').classList.add('visible');
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    //  メイン処理: 生成 → 表示 → 再生
+    // ────────────────────────────────────────────────
+    async function handleGenerate() {
+      const input = document.getElementById('nayami-input');
+      const text = input.value.trim();
+      if (!text) {
+        input.focus();
+        return;
+      }
+
+      const btn   = document.getElementById('btn-generate');
+      const btnTx = document.getElementById('btn-text');
+      const spin  = document.getElementById('spinner');
+
+      // 再生中なら先に止める
+      if (isPlaying) {
+        await handleStop();
+      }
+
+      // UI: ローディング状態
+      btn.disabled = true;
+      btnTx.textContent = '生成中…';
+      spin.classList.add('visible');
+      document.getElementById('btn-replay').classList.remove('visible');
+
+      try {
+        // 1. バックエンドに送信
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'サーバーエラー');
+        }
+
+        const code = data.code;
+        lastGeneratedCode = code;
+
+        // 2. コード表示エリアを見せる
+        const section = document.getElementById('code-section');
+        section.classList.add('visible');
+
+        // 3. タイプライターで表示
+        const display = document.getElementById('code-display');
+        await typewriterDisplay(code, display);
+
+        // 4. Strudel で再生（この関数はクリックイベント起点で呼ばれるので AudioContext OK）
+        await playCode(code);
+
+        // 5. UI: 再生中
+        showPlayingUI();
+
+      } catch (err) {
+        alert('エラー: ' + err.message);
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btnTx.textContent = '処方する';
+        spin.classList.remove('visible');
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    //  停止（確実な消音とスケジューラー停止）
+    // ────────────────────────────────────────────────
+    async function handleStop() {
+      // 1. REPL スケジューラーを停止
+      if (replInstance && typeof replInstance.stop === 'function') {
+        try { replInstance.stop(); } catch (e) { console.warn(e); }
+      }
+
+      // 2. strudel.hush()（グローバルの Ai.stop() を実行）
+      if (window.strudel && typeof window.strudel.hush === 'function') {
+        try { window.strudel.hush(); } catch (e) { console.warn(e); }
+      }
+
+      // 3. パターンを無音 (silence) で上書き
+      const evalFn = getStrudelFn('evaluate');
+      if (typeof evalFn === 'function') {
+        try { await evalFn('silence'); } catch (e) {}
+      }
+
+      // 4. WebAudio Context を一時停止（鳴りっぱなしのリバーブ/ディレイ/シンセを即座にカット）
+      const getCtx = getStrudelFn('getAudioContext') || window.getAudioContext;
+      if (typeof getCtx === 'function') {
+        try {
+          const ctx = getCtx();
+          if (ctx && ctx.state === 'running') {
+            await ctx.suspend();
+            console.log('[Audio] context suspended');
+          }
+        } catch (e) { console.warn(e); }
+      }
+
+      isPlaying = false;
+      showStoppedUI();
+    }
+
+    // ────────────────────────────────────────────────
+    //  再再生（停止後に同じコードを再度再生）
+    // ────────────────────────────────────────────────
+    async function handleReplay() {
+      if (!lastGeneratedCode) return;
+      try {
+        await playCode(lastGeneratedCode);
+        showPlayingUI();
+      } catch (err) {
+        alert('再生エラー: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    // Ctrl + Enter でも送信
+    document.getElementById('nayami-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        handleGenerate();
+      }
+    });
+  </script>
+</body>
+</html>
